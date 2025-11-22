@@ -129,13 +129,13 @@ def execute_tool(name, arguments):
         return f"Unknown tool: {name}"
 
 
-def run_agent(prompt):
+def run_agent(goal: str):
     """Run the agent with a given prompt."""
 
     client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    messages: list = [{"role": "user", "content": prompt}]
+    messages: list = [{"role": "user", "content": goal}]
 
-    print(f"Working on: {prompt}\n")
+    print(f"Working on: {goal}\n")
 
     while True:
         # Call the AI with tools
@@ -172,4 +172,16 @@ def run_agent(prompt):
             text_blocks = [c for c in response.content if c.type == "text"]
             if text_blocks:
                 print(f"AI Response: {text_blocks[0].text}")
+            break
+
+
+if __name__ == "__main__":
+    while True:
+        try:
+            prompt = input("\nWhat wold you like me to do? (or  'quit' to exit)\n> ")
+            if prompt.lower() in ("quit", "exit"):
+                break
+            run_agent(prompt)
+        except KeyboardInterrupt:
+            print("\nGood bye!Exiting...")
             break
