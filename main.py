@@ -7,59 +7,82 @@ import json
 import os
 import subprocess
 
-from anthropic import Anthropic
-from anthropic.types import ToolParam
+import ollama
 
-TOOLS: list[ToolParam] = [
+TOOLS = [
     {
-        "name": "list_files",
-        "description": "List files and directories at a given path",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {
-                    "type": "string",
-                    "description": "Path to list (defaults to current directory)",
-                }
-            },
-        },
-    },
-    {
-        "name": "read_file",
-        "description": "Read the contents of a file",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Path to the file to read"}
-            },
-            "required": ["path"],
-        },
-    },
-    {
-        "name": "run_bash",
-        "description": "Run a bash command and return the output",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "command": {"type": "string", "description": "The bash command to run"}
-            },
-            "required": ["command"],
-        },
-    },
-    {
-        "name": "edit_file",
-        "description": "Edit a file by replacing old text with new text",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string", "description": "Path to the file to edit"},
-                "old_text": {
-                    "type": "string",
-                    "description": "Text to search for and replace",
+        "type": "function",
+        "function": {
+            "name": "list_files",
+            "description": "List files and directories at a given path",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to list (defaults to current directory)",
+                    }
                 },
-                "new_text": {"type": "string", "description": "Text to replace with"},
             },
-            "required": ["path", "old_text", "new_text"],
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read the contents of a file",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file to read",
+                    }
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_bash",
+            "description": "Run a bash command and return the output",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "The bash command to run",
+                    }
+                },
+                "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Edit a file by replacing old text with new text",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Path to the file to edit",
+                    },
+                    "old_text": {
+                        "type": "string",
+                        "description": "Text to search for and replace",
+                    },
+                    "new_text": {
+                        "type": "string",
+                        "description": "Text to replace with",
+                    },
+                },
+                "required": ["path", "old_text", "new_text"],
+            },
         },
     },
 ]
@@ -132,46 +155,42 @@ def execute_tool(name, arguments):
 def run_agent(goal: str):
     """Run the agent with a given prompt."""
 
-    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    messages: list = [{"role": "user", "content": goal}]
+    messages = [{"role": "user", "content": goal}]
 
     print(f"Working on: {goal}\n")
 
     while True:
         # Call the AI with tools
-        response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
-            max_tokens=1024,
+        response = ollama.chat(
+            model="qwen3",
             messages=messages,
             tools=TOOLS,
         )
 
         # Add AI response to conversation
-        messages.append({"role": "assistant", "content": response.content})
+        message = response["message"]
+        messages.append(message)
 
         # Check if the AI wants to use a tool
-        tool_calls = [c for c in response.content if c.type == "tool_use"]
+        if message.get("tool_calls"):
+            for tool in message["tool_calls"]:
+                print(
+                    f"Using tool: {tool['function']['name']} with args {tool['function']['arguments']}"
+                )
+                result = execute_tool(
+                    tool["function"]["name"], tool["function"]["arguments"]
+                )
 
-        if tool_calls:
-            tool_results = []
-            for call in tool_calls:
-                print(f"Using tool: {call.name} with args {call.input}")
-                result = execute_tool(call.name, call.input)
-                tool_results.append(
+                # Add tool result to conversation
+                messages.append(
                     {
-                        "type": "tool_result",
-                        "tool_use_id": call.id,
+                        "role": "tool",
                         "content": result,
                     }
                 )
-
-            # Add tool result to conversation
-            messages.append({"role": "user", "content": tool_results})
         else:
             # No more tool calls, finish the loop
-            text_blocks = [c for c in response.content if c.type == "text"]
-            if text_blocks:
-                print(f"AI Response: {text_blocks[0].text}")
+            print(f"AI Response: {message['content']}")
             break
 
 
