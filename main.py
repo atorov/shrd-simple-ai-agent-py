@@ -7,13 +7,14 @@ import json
 import os
 import subprocess
 
-# from anthropic import Anthropic
+from anthropic import Anthropic
+from anthropic.types import ToolParam
 
-TOOLS = [
+TOOLS: list[ToolParam] = [
     {
         "name": "list_files",
         "description": "List files and directories at a given path",
-        "input schema": {
+        "input_schema": {
             "type": "object",
             "properties": {
                 "path": {
@@ -26,7 +27,7 @@ TOOLS = [
     {
         "name": "read_file",
         "description": "Read the contents of a file",
-        "input schema": {
+        "input_schema": {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Path to the file to read"}
@@ -37,7 +38,7 @@ TOOLS = [
     {
         "name": "run_bash",
         "description": "Run a bash command and return the output",
-        "input schema": {
+        "input_schema": {
             "type": "object",
             "properties": {
                 "command": {"type": "string", "description": "The bash command to run"}
@@ -48,7 +49,7 @@ TOOLS = [
     {
         "name": "edit_file",
         "description": "Edit a file by replacing old text with new text",
-        "input schema": {
+        "input_schema": {
             "type": "object",
             "properties": {
                 "path": {"type": "string", "description": "Path to the file to edit"},
@@ -65,6 +66,8 @@ TOOLS = [
 
 
 def execute_tool(name, arguments):
+    """Execute a tool by name with given arguments."""
+
     if name == "list_files":
         path = arguments.get("path", ".")
         try:
@@ -124,3 +127,49 @@ def execute_tool(name, arguments):
             return f"Error editing file: {str(e)}"
     else:
         return f"Unknown tool: {name}"
+
+
+def run_agent(prompt):
+    """Run the agent with a given prompt."""
+
+    client = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    messages: list = [{"role": "user", "content": prompt}]
+
+    print(f"Working on: {prompt}\n")
+
+    while True:
+        # Call the AI with tools
+        response = client.messages.create(
+            model="claude-3-5-sonnet-20241022",
+            max_tokens=1024,
+            messages=messages,
+            tools=TOOLS,
+        )
+
+        # Add AI response to conversation
+        messages.append({"role": "assistant", "content": response.content})
+
+        # Check if the AI wants to use a tool
+        tool_calls = [c for c in response.content if c.type == "tool_use"]
+
+        if tool_calls:
+            tool_results = []
+            for call in tool_calls:
+                print(f"Using tool: {call.name} with args {call.input}")
+                result = execute_tool(call.name, call.input)
+                tool_results.append(
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": call.id,
+                        "content": result,
+                    }
+                )
+
+            # Add tool result to conversation
+            messages.append({"role": "user", "content": tool_results})
+        else:
+            # No more tool calls, finish the loop
+            text_blocks = [c for c in response.content if c.type == "text"]
+            if text_blocks:
+                print(f"AI Response: {text_blocks[0].text}")
+            break
