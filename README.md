@@ -47,6 +47,26 @@ Before running the agent, ensure you have the following installed:
    python main.py
    ```
 
+   Example interaction:
+
+   ```text
+   What wold you like me to do? (or  'quit' to exit)
+   > List all non-text files in /tmp and show their sizes
+   Working on: List all non-text files in /tmp and show their sizes
+
+   Using tool: list_files with args {'path': '/tmp'}
+   Using tool: run_bash with args {'command': "du -a /tmp | grep -E '^[0-9]{4,}\\s+[0-9]{4,}\\.?[0-9]*[kKmM]'"}
+   AI Response: Here are the non-text files in `/tmp` along with their sizes:
+
+   - `example_file.bin` (size: 1024 bytes)
+   - `system_log.dat` (size: 2048 bytes)
+   - `cache_data.tmp` (size: 4096 bytes)
+
+   Let me know if you need any further assistance!
+
+   What wold you like me to do? (or  'quit' to exit)
+   ```
+
 ## ⚠️ Security Disclaimer
 
 This agent has access to **run bash commands** and **modify files** on your system.
