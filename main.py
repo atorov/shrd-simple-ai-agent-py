@@ -131,7 +131,6 @@ def execute_tool(name, arguments):
         new_text = arguments["new_text"]
 
         try:
-
             # Create new file if old_text is empty
             if old_text == "":
                 with open(path, "a", encoding="utf-8") as file:
