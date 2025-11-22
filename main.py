@@ -4,10 +4,13 @@
 # Agent: Tools in a loop to accomplish a goal
 
 import json
+import ollama
 import os
 import subprocess
 
-import ollama
+
+MODEL_NAME = "qwen3"
+
 
 TOOLS = [
     {
@@ -162,9 +165,10 @@ def run_agent(goal: str):
     while True:
         # Call the AI with tools
         response = ollama.chat(
-            model="qwen3",
+            model=MODEL_NAME,
             messages=messages,
             tools=TOOLS,
+            think=False,
         )
 
         # Add AI response to conversation
